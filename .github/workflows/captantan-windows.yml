@@ -164,6 +164,8 @@ jobs:
       - name: Update Windows dependencies
         env:
           TOOLCHAIN: ucrt-x86_64
+        # Keep this list the same as upstream's ci-windows.yml (ucrt64): the build needs packages that only
+        # come in as dependencies of these (libtiff-4 for static Qt arrives with graphviz).
         run: |
           dependencies=(
             "git"
@@ -171,7 +173,9 @@ jobs:
             "mingw-w64-${TOOLCHAIN}-cmake"
             "mingw-w64-${TOOLCHAIN}-cppwinrt"
             "mingw-w64-${TOOLCHAIN}-curl-winssl"
+            "mingw-w64-${TOOLCHAIN}-doxygen"
             "mingw-w64-${TOOLCHAIN}-gcc"
+            "mingw-w64-${TOOLCHAIN}-graphviz"
             "mingw-w64-${TOOLCHAIN}-miniupnpc"
             "mingw-w64-${TOOLCHAIN}-nlohmann-json"
             "mingw-w64-${TOOLCHAIN}-onevpl"
