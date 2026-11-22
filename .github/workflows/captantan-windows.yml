@@ -134,6 +134,7 @@ jobs:
 
           Get-Content $xml | Select-Object -First 50
           Get-Content (Join-Path $t 'vdd-prepare.log')
+          exit 0  # test 5 left LASTEXITCODE at 1 on purpose
 
   build_windows:
     name: Windows-AMD64

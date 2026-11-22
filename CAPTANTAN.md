@@ -48,6 +48,9 @@ Kept small on purpose, so merges stay easy. Upstream files get about 30 lines; e
 - No window and no console output (stdin, stdout and stderr go to null); the command keeps its own log.
 - Sunshine's log shows `pre_display_cmd: running [...] for WxH@FPS`, then `pre_display_cmd: done` or the error.
 - Empty or missing option: nothing runs, Sunshine behaves exactly like upstream.
+- A second client joining a running stream does not run it (a stream is active). Resuming a running app after
+  everyone disconnected does run it; if that client's mode is new, the virtual display restarts under the running
+  game, which some games may not survive. Quitting the app first avoids that.
 
 ### The VDD script (`captantan/vdd-prepare.ps1`)
 
@@ -90,6 +93,10 @@ upstream added arrives silently. `captantan/check-fork.sh` catches both. Never p
 besides `captantan-windows.yml`: once on the default branch, scheduled ones would start running.
 
 Other things under `.github/` (issue templates, matchers, renovate settings) are kept; they do nothing in a fork.
+
+The fork's `master` branch still has upstream's workflows. Leave it alone: don't use GitHub's "Sync fork" button on
+it and don't push to it, since a push there would run upstream's `ci.yml` (it would fail for want of secrets).
+Upstream's tags are fetched from the `upstream` remote, not from `master`.
 
 ## Build and release
 
