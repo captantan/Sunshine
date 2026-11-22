@@ -207,4 +207,14 @@ the VDD device (Device Manager, Display adapters, Virtual Display Driver: Disabl
 ## History
 
 - 2026-11-22: fork created from upstream `v2026.914.233613`; hook, VDD script and workflow added;
-  `v2026.914.233613-captantan.1` released.
+  `v2026.914.233613-captantan.1` released from commit `888c7530` (run 45079815442, 17 minutes; MSI 34,056,821
+  bytes, SHA-256 `3dfcbe6b…931c0e23`). The tag was moved four times before that, each time with no release made.
+  Lessons for the next merge:
+  - Read upstream's code at the tag being merged, never at `master`: `src/compat/boost_process.h` exists only on
+    `master`, so including it broke the build.
+  - Keep the MSYS2 package list identical to upstream's: the build needs `libtiff-4`, which only arrives as a
+    dependency of `graphviz`.
+  - A build without `-Werror` is required for older tags (OpenSSL 4.1 deprecated `ASN1_STRING_length`, used in
+    `src/crypto.cpp`).
+  - In the workflow's Windows PowerShell test step, end with `exit 0`: the runner exits with the last
+    `$LASTEXITCODE`.
