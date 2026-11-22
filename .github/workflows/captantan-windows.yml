@@ -230,6 +230,8 @@ jobs:
           export PATH="$PATH:$NODEJS_PATH"
           export COMMIT="$(git rev-parse HEAD)"  # the commit being built (a tag, or the branch)
 
+          # BUILD_WERROR is off (upstream CI has it on): MSYS2 is rolling, so a release tag soon meets newer
+          # libraries whose deprecations would fail the build (v2026.914.233613 vs OpenSSL 4.1, ASN1_STRING_length).
           mkdir -p build
           cmake \
             -B build \
@@ -237,7 +239,7 @@ jobs:
             -S . \
             -DBUILD_DOCS=OFF \
             -DBUILD_TESTS=OFF \
-            -DBUILD_WERROR=ON \
+            -DBUILD_WERROR=OFF \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DSUNSHINE_ASSETS_DIR=assets \
             -DSUNSHINE_PUBLISHER_NAME="${GITHUB_REPOSITORY_OWNER}" \

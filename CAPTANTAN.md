@@ -106,8 +106,11 @@ Upstream's tags are fetched from the `upstream` remote, not from `master`.
    the sample settings file and checks what it adds, that a repeat run changes nothing, that comments survive and
    that missing input fails.
 2. **Windows-AMD64**: upstream's `ci-windows.yml` steps for AMD64 (MSYS2 UCRT64, the same packages, dotnet for WiX,
-   Node, Python and uv, cmake and ninja with `-DBUILD_WERROR=ON`, the linkage check, `cpack -G WIX`), without
-   ARM64, signing, docs, tests, coverage and tray screenshots. It checks that the WiX sources include
+   Node, Python and uv, cmake and ninja, the linkage check, `cpack -G WIX`), without ARM64, signing, docs, tests,
+   coverage and tray screenshots. Unlike upstream, `-DBUILD_WERROR` is off: MSYS2's packages are rolling, so an older
+   tag meets newer libraries whose deprecation warnings would stop the build (`v2026.914.233613` against OpenSSL 4.1).
+   After a build, check our own file has no warnings:
+   `gh run view <id> -R captantan/Sunshine --log | grep -i "captantan/.*warning"`. It checks that the WiX sources include
    `vdd-prepare.ps1`.
 3. **Release** (tags only): a GitHub release named after the tag with `Sunshine-Windows-AMD64-installer.msi`, its
    `.sha256` file, and the SHA-256 and commit in the notes.

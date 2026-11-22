@@ -10,7 +10,7 @@
 #include <string>
 
 // local includes
-#include "src/rtsp.h"
+#include "../rtsp.h"
 
 namespace captantan {
   /**

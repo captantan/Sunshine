@@ -14,8 +14,8 @@
 #include <thread>
 
 // local includes
-#include "src/compat/boost_process.h"
-#include "src/logging.h"
+#include "../compat/boost_process.h"
+#include "../logging.h"
 
 #ifdef _WIN32
   #include <boost/process/v1/windows.hpp>
