@@ -20,6 +20,7 @@
 #include <boost/property_tree/ptree.hpp>
 
 // local includes
+#include "captantan/pre_display_cmd.h"
 #include "config.h"
 #include "entry_handler.h"
 #include "file_handler.h"
@@ -1925,6 +1926,8 @@ namespace config {
         }
       }
     }
+
+    string_f(vars, "pre_display_cmd", captantan::pre_display_cmd);  // captantan fork, see CAPTANTAN.md
 
     auto it = vars.find("flags"s);
     if (it != std::end(vars)) {

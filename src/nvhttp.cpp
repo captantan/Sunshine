@@ -23,6 +23,7 @@
 #include <Simple-Web-Server/server_http.hpp>
 
 // local includes
+#include "captantan/pre_display_cmd.h"
 #include "config.h"
 #include "display_device.h"
 #include "file_handler.h"
@@ -1384,6 +1385,14 @@ namespace nvhttp {
       // We want to prepare display only if there are no active sessions at
       // the moment. This should be done before probing encoders as it could
       // change the active displays.
+      // captantan: let pre_display_cmd add the client's display mode first (see CAPTANTAN.md).
+      if (const auto err = captantan::run_pre_display_cmd(*launch_session); !err.empty()) {
+        tree.put("root.<xmlattr>.status_code", 503);
+        tree.put("root.<xmlattr>.status_message", err);
+        tree.put("root.gamesession", 0);
+
+        return;
+      }
       display_device::configure_display(config::video, *launch_session);
 
       // Probe encoders again before streaming to ensure our chosen
@@ -1496,6 +1505,14 @@ namespace nvhttp {
       // We want to prepare display only if there are no active sessions at
       // the moment. This should be done before probing encoders as it could
       // change the active displays.
+      // captantan: let pre_display_cmd add the client's display mode first (see CAPTANTAN.md).
+      if (const auto err = captantan::run_pre_display_cmd(*launch_session); !err.empty()) {
+        tree.put("root.resume", 0);
+        tree.put("root.<xmlattr>.status_code", 503);
+        tree.put("root.<xmlattr>.status_message", err);
+
+        return;
+      }
       display_device::configure_display(config::video, *launch_session);
 
       // Probe encoders again before streaming to ensure our chosen

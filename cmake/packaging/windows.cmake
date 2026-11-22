@@ -32,6 +32,11 @@ install(DIRECTORY "${SUNSHINE_SOURCE_ASSETS_DIR}/windows/misc/path/"
         DESTINATION "scripts"
         COMPONENT assets)
 
+# captantan fork: the VDD script for pre_display_cmd (see CAPTANTAN.md)
+install(FILES "${CMAKE_SOURCE_DIR}/captantan/vdd-prepare.ps1"
+        DESTINATION "scripts/captantan"
+        COMPONENT assets)
+
 # Configurable options for the service
 install(DIRECTORY "${SUNSHINE_SOURCE_ASSETS_DIR}/windows/misc/autostart/"
         DESTINATION "scripts"
