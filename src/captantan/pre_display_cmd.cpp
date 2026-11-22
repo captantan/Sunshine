@@ -13,13 +13,14 @@
 #include <system_error>
 #include <thread>
 
-// local includes
-#include "../compat/boost_process.h"
-#include "../logging.h"
-
+// lib includes
+#include <boost/process/v1.hpp>
 #ifdef _WIN32
   #include <boost/process/v1/windows.hpp>
 #endif
+
+// local includes
+#include "../logging.h"
 
 using namespace std::literals;
 
