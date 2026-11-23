@@ -225,3 +225,6 @@ the VDD device (Device Manager, Display adapters, Virtual Display Driver: Disabl
   layout, input only from `SUNSHINE_CLIENT_*`, default log folder), and the missing-input test checks the script's
   own message, since PowerShell also exits 1 on any error it does not catch.
   Lesson: test the script through the same command line Sunshine uses, with nothing passed by hand.
+  Released from commit `5e82fa41` (run 45108311785; MSI 34,056,821 bytes, SHA-256 `72a778fd…5789b9fa`), no tag
+  moves. Until it was installed, the tower worked around the bug with `-LogDir "C:\Program Files\Sunshine\config"`
+  at the end of the `pre_display_cmd` line, which stays harmless after.
