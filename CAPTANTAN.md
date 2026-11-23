@@ -266,3 +266,7 @@ the VDD device (Device Manager, Display adapters, Virtual Display Driver: Disabl
   Released from commit `5e82fa41` (run 45108311785; MSI 34,056,821 bytes, SHA-256 `72a778fd…5789b9fa`), no tag
   moves. Until it was installed, the tower worked around the bug with `-LogDir "C:\Program Files\Sunshine\config"`
   at the end of the `pre_display_cmd` line, which stays harmless after.
+- 2026-11-22: `v2026.914.233613-captantan.3`: `post_display_cmd` and the script's `-Disable`, so the virtual display
+  is off between streams (the owner asked for it, including going headless when restoring the TV fails). Hook files
+  renamed to `src/captantan/display_hooks.*`. Released from commit `57abe49f` (run 45112248702; MSI 34,065,013
+  bytes, SHA-256 `2a259020…74358326`), first try, no warnings in our file.
