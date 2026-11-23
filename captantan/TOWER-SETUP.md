@@ -63,7 +63,9 @@ icacls "C:\Program Files\Sunshine\scripts\captantan\vdd-prepare.ps1"
 2. Web UI > Configuration > Audio/Video:
    - Display Id (`output_name`): the ID from step 1.
    - Device configuration (`dd_configuration_option`): **Deactivate other displays and activate only the specified
-     display** (`ensure_only_display`).
+     display** (`ensure_only_display`). Not "Activate the display and set it as primary display"
+     (`ensure_primary`): that keeps the TV in the desktop beside the virtual display, and with the TV off Windows can
+     drop it in the middle of the switch and end with no display on at all (seen on 2026-11-22).
    - Resolution, Refresh rate and HDR (`dd_resolution_option`, `dd_refresh_rate_option`, `dd_hdr_option`): leave
      them at "Use resolution provided by the client (default)", "Use FPS value provided by the client (default)"
      and "Switch on/off the HDR mode as requested by the client (default)". That is `auto`, the default, so the
@@ -118,7 +120,17 @@ Select-String -Path "C:\Program Files\Sunshine\config\sunshine.log" -Pattern 'pr
 
 If the stream fails, Moonlight shows the reason: `pre_display_cmd failed with exit code N` means the script
 stopped (its log says why; the codes are in CAPTANTAN.md); `DisplayModePrepFailed` in Sunshine's log means the mode
-was still missing when Sunshine set up the display (send both logs to Claude). To run the script by hand, in
+was still missing when Sunshine set up the display (send both logs to Claude).
+
+Every first connect should log `pre_display_cmd: running` in Sunshine's log, just before `Scheduling display device
+configuration`. If it is not there, the `pre_display_cmd` line is missing from `sunshine.conf` (or this is not our
+build: `C:\Program Files\Sunshine\scripts\captantan\vdd-prepare.ps1` must exist).
+
+Moonlight's `Failed to initialize video capture/encoding. Is a display connected and turned on?`, with `No display
+devices are active` in Sunshine's log, means the tower was left with no display on. Turn the TV on: Sunshine retries
+putting the old layout back whenever a display appears. If the TV stays black after half a minute, restart the tower.
+
+To run the script by hand, in
 PowerShell as administrator:
 ```powershell
 & "C:\Program Files\Sunshine\scripts\captantan\vdd-prepare.ps1" -Width 2560 -Height 1600 -Fps 120
