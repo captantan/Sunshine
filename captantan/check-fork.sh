@@ -18,11 +18,21 @@ check "each call comes right before configure_display" \
 check "upstream still calls configure_display exactly twice" \
   '[ "$(grep -c "display_device::configure_display(" src/nvhttp.cpp)" = 2 ]'
 check "src/nvhttp.cpp includes the hook header" \
-  'grep -q "^#include \"captantan/pre_display_cmd.h\"" src/nvhttp.cpp'
-check "src/config.cpp reads pre_display_cmd" \
-  'grep -q "string_f(vars, \"pre_display_cmd\", captantan::pre_display_cmd);" src/config.cpp && grep -q "^#include \"captantan/pre_display_cmd.h\"" src/config.cpp'
+  'grep -q "^#include \"captantan/display_hooks.h\"" src/nvhttp.cpp'
+check "src/config.cpp reads pre_display_cmd and post_display_cmd" \
+  'grep -q "string_f(vars, \"pre_display_cmd\", captantan::pre_display_cmd);" src/config.cpp && grep -q "string_f(vars, \"post_display_cmd\", captantan::post_display_cmd);" src/config.cpp && grep -q "^#include \"captantan/display_hooks.h\"" src/config.cpp'
+check "src/display_device.cpp includes the hook header" \
+  'grep -q "^#include \"captantan/display_hooks.h\"" src/display_device.cpp'
+check "src/display_device.cpp calls the post hook twice" \
+  '[ "$(grep -c "captantan::run_post_display_cmd(" src/display_device.cpp)" = 2 ]'
+check "the post hook runs after a successful revert" \
+  '[ "$(grep -A1 "revertSettings()}; result == Ok) {" src/display_device.cpp | grep -c "captantan::run_post_display_cmd(true);")" = 1 ]'
+check "the post hook runs after a failed revert" \
+  '[ "$(grep -A2 "Failed to revert display device configuration (will retry" src/display_device.cpp | grep -c "captantan::run_post_display_cmd(false);")" = 1 ]'
+check "the post hook does not run when Sunshine stops (try_once)" \
+  '[ "$(grep -A4 "if (try_once) {" src/display_device.cpp | grep -c "run_post_display_cmd")" = 0 ]'
 check "the hook source is in the build" \
-  'grep -q "src/captantan/pre_display_cmd.cpp" cmake/compile_definitions/common.cmake'
+  'grep -q "src/captantan/display_hooks.cpp" cmake/compile_definitions/common.cmake'
 check "the installer ships vdd-prepare.ps1" \
   'grep -q "captantan/vdd-prepare.ps1" cmake/packaging/windows.cmake && [ -f captantan/vdd-prepare.ps1 ]'
 check "submodules match the commit" \

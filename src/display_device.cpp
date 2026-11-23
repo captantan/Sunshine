@@ -22,6 +22,7 @@
 
 // local includes
 #include "audio.h"
+#include "captantan/display_hooks.h"
 #include "platform/common.h"
 #include "rtsp.h"
 
@@ -743,6 +744,7 @@ namespace display_device {
 
         using enum SettingsManagerInterface::RevertResult;
         if (const auto result {settings_iface.revertSettings()}; result == Ok) {
+          captantan::run_post_display_cmd(true);  // captantan fork, see CAPTANTAN.md
           stop_token.requestStop();
           return;
         } else if (result == ApiTemporarilyUnavailable) {
@@ -753,6 +755,7 @@ namespace display_device {
         // If we have failed to revert settings then we will try to do it next time only if a device was added/removed
         BOOST_LOG(warning) << "Failed to revert display device configuration (will retry once devices are added or removed). Enabling all of the available devices:\n"
                            << toJson(available_devices);
+        captantan::run_post_display_cmd(false);  // captantan fork, see CAPTANTAN.md
         tried_out_devices.swap(available_devices);
       },
                                     scheduler_option);

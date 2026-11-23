@@ -1,10 +1,12 @@
 # captantan fork of Sunshine
 
-This is a fork of [Sunshine](https://github.com/SunshineStream/Sunshine) (formerly `LizardByte/Sunshine`) with one
-addition: a `pre_display_cmd` hook that runs before Sunshine sets up the display. It is used with
+This is a fork of [Sunshine](https://github.com/SunshineStream/Sunshine) (formerly `LizardByte/Sunshine`) with two
+additions: a `pre_display_cmd` hook that runs before Sunshine sets up the display, and a `post_display_cmd` hook that
+runs after it has restored the displays (or failed to). They are used with
 [Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver) (VDD, MIT) so that each Moonlight
-device streams at its own resolution and refresh rate from its first connection, as Apollo did. The owner streams
-from a Windows gaming tower (usually connected only to a TV that is off) to a Samsung Tab S12 Ultra and a phone.
+device streams at its own resolution and refresh rate from its first connection, as Apollo did, and so that the
+virtual display is switched off between streams. The owner streams from a Windows gaming tower (usually connected
+only to a TV that is off) to a Samsung Tab S12 Ultra and a phone.
 
 - Branch `captantan` is the default branch. It holds upstream's newest **stable** release plus our changes.
   `master` is upstream's and is not used.
@@ -25,13 +27,14 @@ lines and waits on `LizardByte/roadmap#38`; it was only a reference here.
 
 ## Our changes
 
-Kept small on purpose, so merges stay easy. Upstream files get about 30 lines; everything else is in new files.
+Kept small on purpose, so merges stay easy. Upstream files get about 35 lines; everything else is in new files.
 
 | What | Files | Why |
 | --- | --- | --- |
-| The hook: runs `pre_display_cmd`, waits up to 90 s, gives it `SUNSHINE_CLIENT_WIDTH`, `_HEIGHT`, `_FPS`, `_HDR`, `_NAME` | `src/captantan/pre_display_cmd.cpp`, `.h` (new) | The variables are built here, not in `src/process.cpp`, whose block of client variables changes in most releases |
+| The hooks: run `pre_display_cmd` (waits up to 90 s, gives it `SUNSHINE_CLIENT_WIDTH`, `_HEIGHT`, `_FPS`, `_HDR`, `_NAME`) and `post_display_cmd` (waits up to 30 s, gives it `SUNSHINE_DISPLAY_RESTORED=true` or `false`) | `src/captantan/display_hooks.cpp`, `.h` (new; named `pre_display_cmd.*` until `captantan.2`) | The variables are built here, not in `src/process.cpp`, whose block of client variables changes in most releases |
 | Two calls, each right before `display_device::configure_display(config::video, *launch_session);` | `src/nvhttp.cpp` (`launch()` and `resume()`, plus one `#include`) | Inside upstream's existing `session_count() == 0` blocks, so the hook runs only when no stream is active. A non-zero exit, a start failure or the timeout returns HTTP 503 with a message such as `pre_display_cmd failed with exit code 4`, which Moonlight shows; the launch stops before the display is touched. The lines around these two call sites changed once in seven stable releases since v2025.122 |
-| One option, `pre_display_cmd` | `src/config.cpp` (one `string_f` line before `vars.find("flags"s)`, plus one `#include`) | No web UI. The web UI keeps unknown keys when it saves, so editing other settings there does not drop it. The value is used as typed (quotes kept); `#` starts a comment in `sunshine.conf`, so the command must not contain one |
+| Two calls of the post hook, in the retrying revert task: after a successful revert (`result == Ok`, before `requestStop()`) and after a failed one (after the "Failed to revert display device configuration" warning) | `src/display_device.cpp` (`revert_configuration_unlocked()`, plus one `#include`) | Runs after Sunshine has put the displays back, which needs the virtual display present; never in the `try_once` branch, which is Sunshine stopping |
+| Two options, `pre_display_cmd` and `post_display_cmd` | `src/config.cpp` (two `string_f` lines before `vars.find("flags"s)`, plus one `#include`) | No web UI. The web UI keeps unknown keys when it saves, so editing other settings there does not drop it. The value is used as typed (quotes kept); `#` starts a comment in `sunshine.conf`, so the command must not contain one |
 | Build list | `cmake/compile_definitions/common.cmake` (two lines after `src/nvhttp.h`) | Compiles the new file |
 | The VDD script, installed to `C:\Program Files\Sunshine\scripts\captantan\vdd-prepare.ps1` | `captantan/vdd-prepare.ps1` (new), `cmake/packaging/windows.cmake` (one `install()` before "Configurable options for the service") | The installer puts it in a folder only admins can change, and every release updates it |
 | Our Windows build | `.github/workflows/captantan-windows.yml` (new) | See "Build and release" |
@@ -40,7 +43,7 @@ Kept small on purpose, so merges stay easy. Upstream files get about 30 lines; e
 | Test data | `captantan/test/vdd_settings.sample.xml` (new) | VDD's own sample file (VDD `master` at `d7244969b2aa`, MIT), used by the workflow's script test |
 | These notes | `CAPTANTAN.md`, `CLAUDE.md`, `captantan/TOWER-SETUP.md` (new) | |
 
-### How the hook runs
+### How `pre_display_cmd` runs
 
 - It runs with Sunshine's own rights. Sunshine on Windows runs as the service, so that is SYSTEM, which can restart
   devices and write the VDD settings, and it works before anyone has signed in. (Upstream's prep commands with
@@ -51,6 +54,25 @@ Kept small on purpose, so merges stay easy. Upstream files get about 30 lines; e
 - A second client joining a running stream does not run it (a stream is active). Resuming a running app after
   everyone disconnected does run it; if that client's mode is new, the virtual display restarts under the running
   game, which some games may not survive. Quitting the app first avoids that.
+
+### How `post_display_cmd` runs
+
+- Same rights, no window, own log, as `pre_display_cmd`. Sunshine's log shows `post_display_cmd: running [...]
+  after the display settings were restored` (or `after restoring the display settings failed`), then `done` or the
+  error. Its exit code is only logged.
+- When: Sunshine restores the displays 3 s (`dd_config_revert_delay`) after the app quits, after the last client
+  disconnects when no app runs (or always, with `dd_config_revert_on_disconnect`), after a failed launch, and when
+  Sunshine starts. The hook runs after each of those attempts, success or failure (the owner's choice: with the TV
+  unplugged the tower goes headless). A failed revert is retried whenever a display is added or removed, and the
+  hook runs again each time; the script is a no-op when VDD is already off.
+- Not when Sunshine stops: shutdown uses the `try_once` branch, which we leave alone, so stopping Sunshine never
+  waits on a script. After a restart, the start-up revert runs it.
+- Why not an app's "undo" command: `proc_t::terminate()` runs undo commands first and only then schedules the
+  revert, and the revert first switches back to the virtual display to undo its mode and HDR changes. With VDD
+  already disabled that fails, and the revert stays pending.
+- It runs inside the display task, so a new launch's `configure_display()` waits for it (30 s at most). A launch's
+  `pre_display_cmd` runs before that and is not ordered with it; the script covers that race (see `-Disable` below).
+- A connect within 3 s of quitting replaces the pending revert, so neither the revert nor the hook runs.
 
 ### The VDD script (`captantan/vdd-prepare.ps1`)
 
@@ -69,9 +91,16 @@ Kept small on purpose, so merges stay easy. Upstream files get about 30 lines; e
   the device is not OK, or when an earlier run changed the file but did not finish its restart (marker file).
 - Exit codes: 0 ready, 1 no width/height/fps, 2 settings file problem, 3 no VDD device, 4 restart failed, 5 busy
   (another run held the lock for 60 s).
+- A disabled VDD device (left so by `-Disable`) counts as not OK, so the next normal run enables it and waits for
+  its monitor: every first connect after a stream takes about 3 to 5 s longer than with VDD always on.
+- `-Disable` (for `post_display_cmd`): takes the same lock, then disables every VDD device that is OK and waits up to
+  10 s for it to stop. It does nothing if a normal run ended less than `-SkipIfPreparedWithin` seconds ago (15 by
+  default; the normal run writes `vdd-prepare.last-prepare` when it exits): that covers a revert, retried because the
+  normal run enabled VDD, which would otherwise disable it again in the middle of a launch. The cost: after a failed
+  launch VDD stays on until the next stream ends. Exit codes: 0 done or nothing to do, 3 no VDD device, 4 failed.
 - Files, all in Sunshine's config folder (`C:\Program Files\Sunshine\config`, admin-only): `vdd-prepare.log`
   (rotated at 1 MB), `vdd_settings.original.xml` (the file as it was before the first change),
-  `vdd-prepare.restart-pending`.
+  `vdd-prepare.restart-pending`, `vdd-prepare.last-prepare`.
 - It writes the new file under a random name and renames it over the old one, and refuses if the folder or file is
   a link: `C:\VirtualDisplayDriver` inherits write access for all signed-in users from `C:\`, and the script runs
   as SYSTEM.
@@ -155,10 +184,14 @@ release; the owner then starts a Claude Code session in this folder to merge it.
      of `launch()` and of `resume()`. If upstream moved display setup elsewhere (into another function, or after
      `proc::proc.execute()`), the hook must still run before it and only when no stream is active; read upstream's
      change and PR #5808's handling first.
+   - `src/display_device.cpp`: keep upstream's code and put the two `captantan::run_post_display_cmd(...)` lines back
+     in the revert task of `revert_configuration_unlocked()`: `(true)` where `revertSettings()` returned `Ok`, before
+     `requestStop()`; `(false)` after the "Failed to revert" warning. Never in the `try_once` branch. If upstream
+     reworked reverting, the rule is: after every attempt of the retrying revert, never at shutdown.
    - `src/config.cpp`, `cmake/compile_definitions/common.cmake`, `cmake/packaging/windows.cmake`: keep upstream's
      version and re-add our lines.
    - If `launch_session_t` fields (`width`, `height`, `fps`, `enable_hdr`, `client_name` in `src/rtsp.h`) were
-     renamed, update `src/captantan/pre_display_cmd.cpp`.
+     renamed, update `src/captantan/display_hooks.cpp`.
 4. Then:
    ```
    git rm $(git ls-files .github/workflows | grep -v '^.github/workflows/captantan-windows.yml$')   # if any
@@ -194,13 +227,18 @@ An update is:
    `(Get-FileHash .\Sunshine-Windows-AMD64-installer.msi).Hash` must equal the SHA-256 in the release notes.
 2. Run it (SmartScreen: "More info", "Run anyway"). It replaces the installed Sunshine and keeps
    `C:\Program Files\Sunshine\config` (settings, pairings, apps, our log).
-3. Connect from Moonlight. The Sunshine log should show `pre_display_cmd: done`.
+3. Connect from Moonlight. The Sunshine log should show `pre_display_cmd: done`; after quitting the session,
+   `post_display_cmd: done`.
 
 ## Rolling back
 
 Install the previous release's MSI the same way: the installer allows downgrades and the settings stay. Upstream's
-own stable MSI also installs over ours; it ignores `pre_display_cmd` (it only logs "Unrecognized configurable
-option"), so new resolutions then fail again until the mode is in `vdd_settings.xml`. To undo the script's edits
+own stable MSI also installs over ours; it ignores `pre_display_cmd` and `post_display_cmd` (it only logs
+"Unrecognized configurable option"), so new resolutions then fail again until the mode is in `vdd_settings.xml`,
+and nothing enables VDD any more: if it was left disabled, enable it in Device Manager (Display adapters, Virtual
+Display Driver, Enable device). Going back to `captantan.2` or `.1` is fine: they ignore `post_display_cmd` too
+(VDD then stays on between streams), and their script also enables a disabled VDD at the next connect. To undo the
+script's edits
 to VDD, copy `C:\Program Files\Sunshine\config\vdd_settings.original.xml` back over `vdd_settings.xml` and restart
 the VDD device (Device Manager, Display adapters, Virtual Display Driver: Disable, then Enable).
 

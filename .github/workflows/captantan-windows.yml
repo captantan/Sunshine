@@ -148,10 +148,20 @@ jobs:
           if ($LASTEXITCODE -ne 1) { throw "expected exit 1 without input, got $LASTEXITCODE" }
           if (-not (Select-String -Path (Join-Path $t 'vdd-prepare.log') -Pattern 'width, height or fps missing' -Quiet)) { throw 'exit 1 without the script saying why' }
 
+          # 7. -Disable right after a normal run (test 6 just ran): a launch may be using VDD, so leave it on.
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script -LogDir $t -Disable
+          if ($LASTEXITCODE -ne 0) { throw "-Disable after a launch: exit $LASTEXITCODE" }
+          if (-not (Select-String -Path (Join-Path $t 'vdd-prepare.log') -Pattern 'a launch prepared VDD .* leaving it on' -Quiet)) { throw '-Disable did not leave VDD on after a launch' }
+
+          # 8. -Disable with no recent launch: the runner has no VDD device, so it must say so (exit 3).
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script -LogDir $t -Disable -SkipIfPreparedWithin 0
+          if ($LASTEXITCODE -ne 3) { throw "-Disable without VDD: expected exit 3, got $LASTEXITCODE" }
+          if (-not (Select-String -Path (Join-Path $t 'vdd-prepare.log') -Pattern 'start: disable' -Quiet)) { throw '-Disable wrote no start line' }
+
           Get-Content $xml | Select-Object -First 50
           Get-Content (Join-Path $t 'vdd-prepare.log')
           Get-Content $log5
-          exit 0  # test 6 left LASTEXITCODE at 1 on purpose
+          exit 0  # tests 6 and 8 left LASTEXITCODE non-zero on purpose
 
   build_windows:
     name: Windows-AMD64

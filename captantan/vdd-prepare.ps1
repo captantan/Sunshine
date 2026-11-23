@@ -15,6 +15,11 @@
     Exit code 0 means the mode is offered; any other code makes Sunshine abort the launch.
     Exit codes: 1 bad input, 2 settings file problem, 3 no VDD device, 4 restart failed, 5 busy.
 
+    With -Disable (Sunshine's post_display_cmd, after it has restored the displays or failed to)
+    it disables the VDD device, so Windows has no second screen between streams; the next normal
+    run enables it again. It does nothing if a normal run finished less than -SkipIfPreparedWithin
+    seconds ago, because that means a launch is using VDD right now. Its exit code is only logged.
+
     Runs as SYSTEM under the Sunshine service. Can also be run by hand from an elevated
     PowerShell, for example:  .\vdd-prepare.ps1 -Width 2960 -Height 1848 -Fps 120
 
@@ -32,7 +37,10 @@ param(
     [switch]$ForceRestart,
     # For tests: use this file instead of the driver's, and only edit it (no device restart).
     [string]$SettingsPath,
-    [switch]$NoRestart
+    [switch]$NoRestart,
+    # Sunshine's post_display_cmd: disable the VDD device until the next stream.
+    [switch]$Disable,
+    [int]$SkipIfPreparedWithin = 15
 )
 
 $ErrorActionPreference = 'Stop'
@@ -47,6 +55,7 @@ $LogDir = [System.IO.Path]::GetFullPath($LogDir)
 $LogFile = Join-Path $LogDir 'vdd-prepare.log'
 $PendingFile = Join-Path $LogDir 'vdd-prepare.restart-pending'
 $OriginalCopy = Join-Path $LogDir 'vdd_settings.original.xml'
+$PreparedFile = Join-Path $LogDir 'vdd-prepare.last-prepare'
 
 function Write-Log([string]$Message) {
     $line = '{0} [{1}] {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff'), $PID, $Message
@@ -56,6 +65,10 @@ function Write-Log([string]$Message) {
 
 function Exit-With([int]$Code, [string]$Message) {
     Write-Log $Message
+    if (-not $Disable) {
+        # Tells a -Disable run that a launch is using VDD right now.
+        try { Set-Content -LiteralPath $PreparedFile -Value (Get-Date -Format o) } catch { }
+    }
     Write-Log "exit $Code"
     exit $Code
 }
@@ -125,9 +138,13 @@ if ((Test-Path -LiteralPath $LogFile) -and (Get-Item -LiteralPath $LogFile).Leng
 }
 
 $who = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-Write-Log ("start: {0}x{1}@{2} HDR={3} client='{4}' as {5}" -f $Width, $Height, $Fps, $env:SUNSHINE_CLIENT_HDR, $env:SUNSHINE_CLIENT_NAME, $who)
+if ($Disable) {
+    Write-Log ("start: disable (display settings restored: {0}) as {1}" -f $env:SUNSHINE_DISPLAY_RESTORED, $who)
+} else {
+    Write-Log ("start: {0}x{1}@{2} HDR={3} client='{4}' as {5}" -f $Width, $Height, $Fps, $env:SUNSHINE_CLIENT_HDR, $env:SUNSHINE_CLIENT_NAME, $who)
+}
 
-if ($Width -le 0 -or $Height -le 0 -or $Fps -le 0) {
+if (-not $Disable -and ($Width -le 0 -or $Height -le 0 -or $Fps -le 0)) {
     Exit-With 1 'width, height or fps missing (SUNSHINE_CLIENT_* not set and no parameters given)'
 }
 
@@ -137,6 +154,36 @@ try {
     if (-not $mutex.WaitOne([TimeSpan]::FromSeconds(60))) { Exit-With 5 'another run is still busy after 60 s' }
 } catch [System.Threading.AbandonedMutexException] {
     Write-Log 'previous run ended without releasing the lock; continuing'
+}
+
+if ($Disable) {
+    try {
+        if ($SkipIfPreparedWithin -gt 0 -and (Test-Path -LiteralPath $PreparedFile)) {
+            $age = ((Get-Date) - (Get-Item -LiteralPath $PreparedFile).LastWriteTime).TotalSeconds
+            if ($age -lt $SkipIfPreparedWithin) {
+                Exit-With 0 ("a launch prepared VDD {0:N1} s ago; leaving it on" -f $age)
+            }
+        }
+        $devices = Get-VddDevices
+        if ($devices.Count -eq 0) { Exit-With 3 'no Virtual Display Driver device found (Root\MttVDD)' }
+        $on = @($devices | Where-Object { $_.Status -eq 'OK' })
+        if ($on.Count -eq 0) { Exit-With 0 'VDD already disabled' }
+        foreach ($d in $on) {
+            Write-Log "disabling $($d.InstanceId)"
+            Disable-PnpDevice -InstanceId $d.InstanceId -Confirm:$false
+        }
+        $deadline = (Get-Date).AddSeconds(10)
+        do {
+            Start-Sleep -Milliseconds 250
+            $still = @($on | Where-Object { (Get-PnpDevice -InstanceId $_.InstanceId -ErrorAction SilentlyContinue).Status -eq 'OK' })
+        } until ($still.Count -eq 0 -or (Get-Date) -gt $deadline)
+        if ($still.Count -gt 0) { Exit-With 4 'VDD still running 10 s after disabling it' }
+        Exit-With 0 'VDD disabled until the next stream'
+    } catch {
+        Exit-With 4 ("failed: {0} (line {1})" -f $_.Exception.Message, $_.InvocationInfo.ScriptLineNumber)
+    } finally {
+        try { $mutex.ReleaseMutex() } catch { }
+    }
 }
 
 try {

@@ -71,18 +71,22 @@ icacls "C:\Program Files\Sunshine\scripts\captantan\vdd-prepare.ps1"
      and "Switch on/off the HDR mode as requested by the client (default)". That is `auto`, the default, so the
      web UI does not write these three to the file.
    - Save.
-3. Add the hook, which has no web UI: open Notepad **as administrator**, open
-   `C:\Program Files\Sunshine\config\sunshine.conf` and add this as one line at the end:
+3. Add the hooks, which have no web UI: open Notepad **as administrator**, open
+   `C:\Program Files\Sunshine\config\sunshine.conf` and add these two lines at the end (each is one line):
    ```
    pre_display_cmd = C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "C:\Program Files\Sunshine\scripts\captantan\vdd-prepare.ps1"
+   post_display_cmd = C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "C:\Program Files\Sunshine\scripts\captantan\vdd-prepare.ps1" -Disable
    ```
+   The first adds the device's mode to the virtual display before each stream. The second (from `captantan.3`)
+   switches the virtual display off after each stream, so Windows has no second screen in between; leave it out
+   to keep the virtual display on.
    The file should now also have these two lines (and no `dd_resolution_option`, `dd_refresh_rate_option` or
    `dd_hdr_option` set to anything but `auto`):
    ```
    output_name = {the ID}
    dd_configuration_option = ensure_only_display
    ```
-   Save, then web UI > Troubleshooting > Restart Sunshine. Later saves in the web UI keep the `pre_display_cmd` line.
+   Save, then web UI > Troubleshooting > Restart Sunshine. Later saves in the web UI keep both lines.
 4. Web UI > Applications: recreate your apps (Desktop and Steam Big Picture are there already). Apollo's
    `apps.json` from step 0 shows what you had.
 
@@ -116,13 +120,24 @@ Select-String -Path "C:\Program Files\Sunshine\config\sunshine.log" -Pattern 'pr
    device's resolution and frame rate (Moonlight's performance overlay shows both). The script's log shows
    `added resolution WxH`, `VDD back with 1 monitor(s)` and `ready`; Sunshine's log shows `pre_display_cmd: done`
    and no `DisplayModePrepFailed`.
-2. **A second connect skips the restart.** Quit the session (Moonlight: long-press the app > Quit session) and
-   connect again from the same device. The script's log shows `mode already offered; no restart needed`, and the
-   stream starts without the black pause.
+2. **A second connect does not change the file.** Quit the session (Moonlight: long-press the app > Quit session)
+   and connect again from the same device. The script's log shows `resolution present, rate present` and no
+   `added` line. With `post_display_cmd`, the virtual display was off since the quit, so the log then shows
+   `enabling` and the stream starts after a short pause; without it, `mode already offered; no restart needed` and
+   no pause.
 3. **Displays are restored after the stream.** Quit the session, then turn the TV on: the desktop is on the TV as
    before, and the virtual display is back to how it was before the stream.
 4. **It works with the TV off.** Repeat 1 and 2 with the TV off, using a resolution not yet used (the phone, or
    another resolution in Moonlight's settings).
+5. **No second screen between streams** (with `post_display_cmd`). Quit the session and wait about 5 s. Settings >
+   System > Display shows only the TV, Device Manager shows Virtual Display Driver as disabled (a down arrow on its
+   icon), and the script's log ends with `VDD disabled until the next stream`. Sunshine's log shows
+   `post_display_cmd: running [...] after the display settings were restored`, then `post_display_cmd: done`.
+   Restart the tower: once Sunshine has started, the virtual display is off again.
+6. **TV unplugged: headless** (with `post_display_cmd`). Start a stream, unplug the TV's HDMI cable, quit the
+   session. Sunshine's log shows `after restoring the display settings failed`, the script's log `VDD disabled`,
+   and the tower has no display. Connect again: the stream works. Plug the TV back in: it shows the desktop again
+   (Windows turns it on by itself; Sunshine finishes restoring at the end of the next stream).
 
 If the stream fails, Moonlight shows the reason: `pre_display_cmd failed with exit code N` means the script
 stopped (its log says why; the codes are in CAPTANTAN.md); `DisplayModePrepFailed` in Sunshine's log means the mode

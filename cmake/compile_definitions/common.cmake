@@ -161,8 +161,8 @@ set(SUNSHINE_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/crypto.h"
         "${CMAKE_SOURCE_DIR}/src/nvhttp.cpp"
         "${CMAKE_SOURCE_DIR}/src/nvhttp.h"
-        "${CMAKE_SOURCE_DIR}/src/captantan/pre_display_cmd.cpp"  # captantan fork
-        "${CMAKE_SOURCE_DIR}/src/captantan/pre_display_cmd.h"
+        "${CMAKE_SOURCE_DIR}/src/captantan/display_hooks.cpp"  # captantan fork
+        "${CMAKE_SOURCE_DIR}/src/captantan/display_hooks.h"
         "${CMAKE_SOURCE_DIR}/src/httpcommon.cpp"
         "${CMAKE_SOURCE_DIR}/src/httpcommon.h"
         "${CMAKE_SOURCE_DIR}/src/confighttp.cpp"

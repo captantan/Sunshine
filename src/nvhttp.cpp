@@ -23,7 +23,7 @@
 #include <Simple-Web-Server/server_http.hpp>
 
 // local includes
-#include "captantan/pre_display_cmd.h"
+#include "captantan/display_hooks.h"
 #include "config.h"
 #include "display_device.h"
 #include "file_handler.h"
