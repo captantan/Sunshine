@@ -128,13 +128,30 @@ jobs:
           if ($raw -notmatch 'RESOLUTION CONFIGURATION') { throw 'comments lost' }
           if ($raw -notmatch '<width>2960</width>\s*<height>1848</height>\s*<refresh_rate>120</refresh_rate>') { throw 'element order wrong' }
 
-          # 5. Missing input fails.
+          # 5. As Sunshine runs it: from the installed layout, input only from SUNSHINE_CLIENT_*, log in the
+          #    default folder (Sunshine's config folder, two levels up). Tests 1-4 pass everything as parameters.
+          $inst = Join-Path $t 'Sunshine'
+          New-Item -ItemType Directory -Force -Path (Join-Path $inst 'scripts\captantan'), (Join-Path $inst 'config') | Out-Null
+          $installed = Join-Path $inst 'scripts\captantan\vdd-prepare.ps1'
+          Copy-Item $script $installed
+          $env:SUNSHINE_CLIENT_WIDTH = '1280'; $env:SUNSHINE_CLIENT_HEIGHT = '800'; $env:SUNSHINE_CLIENT_FPS = '60'
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $installed -SettingsPath $xml -NoRestart
+          $code = $LASTEXITCODE
+          Remove-Item Env:SUNSHINE_CLIENT_WIDTH, Env:SUNSHINE_CLIENT_HEIGHT, Env:SUNSHINE_CLIENT_FPS
+          if ($code -ne 0) { throw "exit $code when run the way Sunshine runs it" }
+          $log5 = Join-Path $inst 'config\vdd-prepare.log'
+          if (-not (Select-String -Path $log5 -Pattern 'start: 1280x800@60' -Quiet)) { throw "no start line in $log5" }
+          if ((Modes).r -notcontains '1280x800@60') { throw 'resolution from SUNSHINE_CLIENT_* not added' }
+
+          # 6. Missing input fails with the script's own exit 1 (not a PowerShell error, which is also 1).
           & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script -SettingsPath $xml -LogDir $t -NoRestart
           if ($LASTEXITCODE -ne 1) { throw "expected exit 1 without input, got $LASTEXITCODE" }
+          if (-not (Select-String -Path (Join-Path $t 'vdd-prepare.log') -Pattern 'width, height or fps missing' -Quiet)) { throw 'exit 1 without the script saying why' }
 
           Get-Content $xml | Select-Object -First 50
           Get-Content (Join-Path $t 'vdd-prepare.log')
-          exit 0  # test 5 left LASTEXITCODE at 1 on purpose
+          Get-Content $log5
+          exit 0  # test 6 left LASTEXITCODE at 1 on purpose
 
   build_windows:
     name: Windows-AMD64

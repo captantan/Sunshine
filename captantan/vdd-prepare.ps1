@@ -25,8 +25,8 @@ param(
     [int]$Width = $env:SUNSHINE_CLIENT_WIDTH,
     [int]$Height = $env:SUNSHINE_CLIENT_HEIGHT,
     [int]$Fps = $env:SUNSHINE_CLIENT_FPS,
-    # Next to sunshine.log, in Sunshine's config folder (only admins can change it).
-    [string]$LogDir = (Join-Path $PSScriptRoot '..\..\config'),
+    # Default: Sunshine's config folder, next to sunshine.log (only admins can change it).
+    [string]$LogDir,
     [int]$TimeoutSeconds = 45,
     [int]$SettleSeconds = 2,
     [switch]$ForceRestart,
@@ -36,6 +36,13 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if (-not $LogDir) {
+    # Not a parameter default: Windows PowerShell 5.1 leaves $PSScriptRoot empty there under -File,
+    # which is how Sunshine runs this script.
+    $here = $PSScriptRoot
+    if (-not $here) { $here = Split-Path -Parent $MyInvocation.MyCommand.Path }
+    $LogDir = Join-Path $here '..\..\config'
+}
 $LogDir = [System.IO.Path]::GetFullPath($LogDir)
 $LogFile = Join-Path $LogDir 'vdd-prepare.log'
 $PendingFile = Join-Path $LogDir 'vdd-prepare.restart-pending'

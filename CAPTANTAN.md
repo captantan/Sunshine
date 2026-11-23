@@ -218,3 +218,10 @@ the VDD device (Device Manager, Display adapters, Virtual Display Driver: Disabl
     `src/crypto.cpp`).
   - In the workflow's Windows PowerShell test step, end with `exit 0`: the runner exits with the last
     `$LASTEXITCODE`.
+- 2026-11-22: `v2026.914.233613-captantan.2`, a fix to the VDD script only. On the tower `.1` exited 1 on every
+  connect, before writing its log: Windows PowerShell 5.1 leaves `$PSScriptRoot` empty in parameter defaults when a
+  script runs with `-File`, so the default `-LogDir` could not be worked out. The default is now computed in the
+  script body. CI had passed every parameter by hand; test 5 now runs the script the way Sunshine does (installed
+  layout, input only from `SUNSHINE_CLIENT_*`, default log folder), and the missing-input test checks the script's
+  own message, since PowerShell also exits 1 on any error it does not catch.
+  Lesson: test the script through the same command line Sunshine uses, with nothing passed by hand.
