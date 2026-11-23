@@ -91,6 +91,11 @@ icacls "C:\Program Files\Sunshine\scripts\captantan\vdd-prepare.ps1"
 1. Delete the old Apollo entry for the tower (long-press it > Delete PC).
 2. Settings: turn on **Optimize game settings** (without it Sunshine keeps the virtual display's current
    resolution). Set Resolution to Native, or the one you want, and the frame rate you want.
+   - Each Moonlight app has its own settings (the Play Store one and "Moonlight (captantan)"): change it in the one
+     you stream with. If Sunshine's log still says `"Optimize game settings" is not set in the client`, it is off in
+     the app that connected.
+   - With it off, the virtual display comes up at VDD's preferred mode, which is the first resolution in
+     `vdd_settings.xml` (800x600 in VDD 25.7.23's file), and stays there.
 3. Add the tower again and pair: Moonlight shows a PIN; enter it in the web UI's PIN tab.
 
 The current Moonlight app works for all of this. The new `dev.captantan.moonlight` build pairs separately, as its
@@ -105,7 +110,8 @@ Select-String -Path "C:\Program Files\Sunshine\config\sunshine.log" -Pattern 'pr
 ```
 
 1. **A new resolution works on the first connect.** Use a device whose resolution is not in `vdd_settings.xml`
-   (VDD's defaults are 1920x1080, 2560x1440 and 3840x2160; the tablet's native resolution is not among them).
+   (VDD 25.7.23's defaults are 800x600, 1366x768, 1920x1080, 2560x1440 and 3840x2160; the tablet's native
+   resolution is not among them).
    Start Desktop. Expected: a few seconds of black while the virtual display restarts, then the stream at the
    device's resolution and frame rate (Moonlight's performance overlay shows both). The script's log shows
    `added resolution WxH`, `VDD back with 1 monitor(s)` and `ready`; Sunshine's log shows `pre_display_cmd: done`
